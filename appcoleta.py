@@ -69,69 +69,67 @@ def exibir_dados(df):
         key='status_filter'
     )
     
-    # Aplica o filtro nos dados completos armazenados na sessão
-    if 'dados_completos' in st.session_state:
-        df_base = st.session_state.dados_completos
-        if status_filtro != 'TODOS':
-            df_display = df_base[df_base['status_estoque'] == status_filtro].copy()
-        else:
-            df_display = df_base.copy()
-        
-        # Formata as colunas numéricas
-        if 'qtdcoleta' in df_display.columns:
-            df_display['qtdcoleta'] = df_display['qtdcoleta'].round(3)
-        if 'qtdatualestoque' in df_display.columns:
-            df_display['qtdatualestoque'] = df_display['qtdatualestoque'].round(3)
-        if 'dtferença' in df_display.columns:
-            df_display['dtferença'] = df_display['dtferença'].round(3)
-        
-        # Renomeia as colunas
-        df_display.rename(columns={
-            'idsubproduto': 'Cod Produto',
-            'descricaoproduto': 'Produto',
-            'fabricante': 'Marca',
-            'qtdcoleta': 'Qtd Coletada',
-            'qtdatualestoque': 'Qtd Estoque',
-            'dtferença': 'Qtd Diferença',
-            'status_estoque': 'Status Estoque'
-        }, inplace=True)
-        
-        # Estiliza o DataFrame
-        def highlight_status(row):
-            if row['Status Estoque'] == 'SOBRA':
-                return ['background-color: #90CAF9; color: black'] * len(row)  # Azul mais forte
-            elif row['Status Estoque'] == 'FALTA':
-                return ['background-color: #EF9A9A; color: black'] * len(row)  # Vermelho mais forte
-            return ['background-color: #A5D6A7; color: black'] * len(row)      # Verde mais forte
-        
-        # Exibe a tabela estilizada com cabeçalho formatado
-        st.subheader('Tabela de Dados')
-        st.dataframe(
-            df_display.style
-                .apply(highlight_status, axis=1)
-                .set_table_styles([
-                    {'selector': 'th',
-                     'props': [
-                         ('background-color', '#2C3E50'),
-                         ('color', 'white'),
-                         ('font-weight', 'bold'),
-                         ('text-align', 'center'),
-                         ('padding', '10px'),
-                         ('font-size', '14px')
-                     ]},
-                    {'selector': 'td',
-                     'props': [
-                         ('text-align', 'center')
-                     ]}
-                ])
-                .format({
-                    'Qtd Coletada': '{:.3f}',
-                    'Qtd Estoque': '{:.3f}',
-                    'Qtd Diferença': '{:.3f}'
-                }),
-            use_container_width=True,
-            hide_index=True
-        )
+    # Aplica o filtro nos dados
+    if status_filtro != 'TODOS':
+        df_display = df[df['status_estoque'] == status_filtro].copy()
+    else:
+        df_display = df.copy()
+    
+    # Formata as colunas numéricas
+    if 'qtdcoleta' in df_display.columns:
+        df_display['qtdcoleta'] = df_display['qtdcoleta'].round(3)
+    if 'qtdatualestoque' in df_display.columns:
+        df_display['qtdatualestoque'] = df_display['qtdatualestoque'].round(3)
+    if 'dtferença' in df_display.columns:
+        df_display['dtferença'] = df_display['dtferença'].round(3)
+    
+    # Renomeia as colunas
+    df_display.rename(columns={
+        'idsubproduto': 'Cod Produto',
+        'descricaoproduto': 'Produto',
+        'fabricante': 'Marca',
+        'qtdcoleta': 'Qtd Coletada',
+        'qtdatualestoque': 'Qtd Estoque',
+        'dtferença': 'Qtd Diferença',
+        'status_estoque': 'Status Estoque'
+    }, inplace=True)
+    
+    # Função para destacar status
+    def highlight_status(row):
+        if row['Status Estoque'] == 'SOBRA':
+            return ['background-color: #90CAF9; color: black'] * len(row)  # Azul
+        elif row['Status Estoque'] == 'FALTA':
+            return ['background-color: #EF9A9A; color: black'] * len(row)  # Vermelho
+        return ['background-color: #A5D6A7; color: black'] * len(row)      # Verde
+    
+    # Exibe a tabela estilizada com cabeçalho formatado
+    st.subheader('Tabela de Dados')
+    st.dataframe(
+        df_display.style
+            .apply(highlight_status, axis=1)
+            .set_table_styles([
+                {'selector': 'th',
+                 'props': [
+                     ('background-color', '#2C3E50'),
+                     ('color', 'white'),
+                     ('font-weight', 'bold'),
+                     ('text-align', 'center'),
+                     ('padding', '10px'),
+                     ('font-size', '14px')
+                 ]},
+                {'selector': 'td',
+                 'props': [
+                     ('text-align', 'center')
+                 ]}
+            ])
+            .format({
+                'Qtd Coletada': '{:.3f}',
+                'Qtd Estoque': '{:.3f}',
+                'Qtd Diferença': '{:.3f}'
+            }),
+        use_container_width=True,
+        hide_index=True
+    )
 
 def main():
     st.set_page_config(page_title="Dashboard de Coleta", layout="wide")
@@ -167,7 +165,7 @@ def main():
             format="DD/MM/YYYY"
         )
 
-    # Checkbox para ativar atualização automática
+    # Checkbox para atualização automática
     auto_refresh = st.checkbox('Ativar atualização automática (15 segundos)', value=False)
     
     # Placeholder para a tabela
@@ -175,81 +173,82 @@ def main():
     
     # Botão para buscar dados
     if st.button('Buscar Dados') or ('auto_update' in st.session_state and auto_refresh):
-        while True:
+        token = obter_token()
+        if token:
             try:
-                token = obter_token()
+                headers = {'Authorization': f'Bearer {token}'}
+                payload = {
+                    "page": 1,
+                    "clausulas": [
+                        {
+                            "campo": "idlocal",
+                            "operadorlogico": "AND",
+                            "operador": "IGUAL",
+                            "valor": local_estoque
+                        },
+                        {
+                            "campo": "dtinicoleta",
+                            "operadorlogico": "AND",
+                            "operador": "IGUAL",
+                            "valor": data_inicial.strftime('%Y-%m-%d')
+                        },
+                        {
+                            "campo": "dtfimcoleta",
+                            "operadorlogico": "AND",
+                            "operador": "IGUAL",
+                            "valor": data_final.strftime('%Y-%m-%d')
+                        }
+                    ]
+                }
                 
-                if token:
-                    headers = {'Authorization': f'Bearer {token}'}
-                    payload = {
-                        "page": 1,
-                        "clausulas": [
-                            {
-                                "campo": "idlocal",
-                                "operadorlogico": "AND",
-                                "operador": "IGUAL",
-                                "valor": local_estoque
-                            },
-                            {
-                                "campo": "dtinicoleta",
-                                "operadorlogico": "AND",
-                                "operador": "IGUAL",
-                                "valor": data_inicial.strftime('%Y-%m-%d')
-                            },
-                            {
-                                "campo": "dtfimcoleta",
-                                "operadorlogico": "AND",
-                                "operador": "IGUAL",
-                                "valor": data_final.strftime('%Y-%m-%d')
-                            }
-                        ]
-                    }
-
-                    with table_placeholder.container():
-                        # Aqui vai todo o código de exibição dos dados
-                        response = requests.post(os.getenv('data_url'), json=payload, headers=headers)
-                        
-                        if response.status_code == 200:
-                            dados = response.json()
-                            logging.info('Dados obtidos com sucesso')
-                            
-                            # Extrai os dados do campo 'data' e converte para DataFrame
-                            if isinstance(dados.get('data'), list):
-                                df = pd.DataFrame(dados['data'])
-                            else:
-                                df = pd.DataFrame([dados['data']])
-                            
-                            # Adiciona coluna de status do estoque
-                            df['status_estoque'] = 'IGUAL'
-                            df.loc[df['qtdcoleta'] > df['qtdatualestoque'], 'status_estoque'] = 'SOBRA'
-                            df.loc[df['qtdcoleta'] < df['qtdatualestoque'], 'status_estoque'] = 'FALTA'
-                            
-                            # Armazena o DataFrame completo na sessão
-                            if 'dados_completos' not in st.session_state:
-                                st.session_state.dados_completos = df
-                            
-                            # Exibe os dados
-                            exibir_dados(df)
-                            
-                            # Adiciona indicador de última atualização
-                            st.caption(f"Última atualização: {datetime.now().strftime('%H:%M:%S')}")
-
-                    # Se não estiver com atualização automática, sai do loop
-                    if not auto_refresh:
-                        break
-                        
-                    # Aguarda 15 segundos antes da próxima atualização
-                    time.sleep(15)
+                response = requests.post(os.getenv('data_url'), json=payload, headers=headers)
+                if response.status_code == 200:
+                    dados = response.json()
                     
-                    # Força rerun do Streamlit
-                    st.rerun()
+                    # Verifica se há dados retornados
+                    if not dados.get('data'):
+                        st.warning('Não foram encontradas coletas de estoque para o período selecionado.')
+                        if 'dados_completos' in st.session_state:
+                            del st.session_state.dados_completos
+                        return
                     
+                    if isinstance(dados.get('data'), list):
+                        df = pd.DataFrame(dados['data'])
+                    else:
+                        df = pd.DataFrame([dados['data']])
+                    
+                    # Verifica se as colunas necessárias existem
+                    colunas_necessarias = ['qtdcoleta', 'qtdatualestoque']
+                    if not all(col in df.columns for col in colunas_necessarias):
+                        st.error('Os dados retornados não contêm as informações necessárias de coleta.')
+                        if 'dados_completos' in st.session_state:
+                            del st.session_state.dados_completos
+                        return
+                    
+                    # Adiciona coluna de status do estoque
+                    df['status_estoque'] = 'IGUAL'
+                    df.loc[df['qtdcoleta'] > df['qtdatualestoque'], 'status_estoque'] = 'SOBRA'
+                    df.loc[df['qtdcoleta'] < df['qtdatualestoque'], 'status_estoque'] = 'FALTA'
+                    
+                    # Armazena dados na sessão
+                    st.session_state.dados_completos = df
+                    
+                    # Configura atualização automática
+                    if auto_refresh:
+                        st.session_state.auto_update = True
+                        time.sleep(15)
+                        st.rerun()
+                    else:
+                        st.session_state.auto_update = False
+                        
             except Exception as e:
-                st.error(f'Erro ao atualizar dados: {str(e)}')
-                break
+                st.error(f'Erro ao buscar dados: {str(e)}')
+                if 'dados_completos' in st.session_state:
+                    del st.session_state.dados_completos
 
-    # Armazena estado da atualização automática
-    st.session_state.auto_update = auto_refresh
+    # Exibe os dados se existirem na sessão
+    if 'dados_completos' in st.session_state:
+        exibir_dados(st.session_state.dados_completos)
 
 if __name__ == "__main__":
     main()
